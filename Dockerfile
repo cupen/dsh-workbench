@@ -19,11 +19,7 @@ ENV LANG=C.UTF-8 \
     NPM_CONFIG_DISTURL=${NODE_DIST_MIRROR} \
     pnpm_config_registry=${NPM_REGISTRY} \
     PNPM_CONFIG_REGISTRY=${NPM_REGISTRY} \
-    RUSTUP_DIST_SERVER=https://rsproxy.cn \
-    RUSTUP_UPDATE_ROOT=https://rsproxy.cn/rustup \
-    CARGO_HOME=/home/dsh/.cargo \
-    RUSTUP_HOME=/home/dsh/.rustup \
-    PATH=/home/dsh/.cargo/bin:/usr/local/bin:/usr/bin:/bin
+    PATH=/usr/local/bin:/usr/bin:/bin
 
 # 1. Use Chinese mirrors for pacman before any package operation.
 RUN printf '%s\n' \
@@ -39,20 +35,21 @@ RUN echo 'SigLevel = Never' >> /etc/pacman.conf \
     && pacman -Sy --noconfirm --disable-sandbox gnupg archlinux-keyring \
     && sed -i 's/^SigLevel = Never$/SigLevel = Required DatabaseOptional/' /etc/pacman.conf
 
-# 3. Base development toolchain and required packages.
-#    base-devel contains the compilers node-pty's source build needs.
+# 3. Development toolchain and required packages.
+#    gcc/make are the minimal toolchain node-pty's node-gyp build needs.
 RUN pacman -Syu --needed --noconfirm --disable-sandbox \
-    base-devel \
     bash-completion \
     ca-certificates \
     curl \
+    gcc \
     git \
+    make \
     nodejs \
     npm \
+    pkgconf \
     python \
     python-pip \
     python-setuptools \
-    rustup \
     shadow \
     socat \
     sudo \
@@ -80,29 +77,26 @@ RUN if [ -n "${GITHUB_PROXY}" ]; then \
 RUN groupadd --gid 1000 dsh \
     && useradd --create-home --uid 1000 --gid dsh --shell /bin/bash dsh
 
-# 8. Rust stable via rsproxy.cn.
-RUN rustup default stable
-
-# 9. Clone the repository at a fixed commit.
+# 8. Clone the repository at a fixed commit.
 RUN git clone --depth 1 https://github.com/deepseek-ai/deepseek-harness.git /opt/deepseek-harness \
     && cd /opt/deepseek-harness \
     && git fetch --depth 1 origin "${DSH_COMMIT}" \
     && git checkout --detach FETCH_HEAD
 
-# 10. Install the full workspace and build dsh. CI=true skips git-hook setup only.
+# 9. Install the full workspace and build dsh. CI=true skips git-hook setup only.
 #    The repo's pnpm-workspace.yaml already allows node-pty/koffi/esbuild/lefthook builds.
 RUN cd /opt/deepseek-harness \
     && pnpm install --frozen-lockfile \
     && pnpm run build
 
-# 11. Verify node-pty was actually compiled inside the image and can spawn a PTY.
+# 10. Verify node-pty was actually compiled inside the image and can spawn a PTY.
 RUN node_pty_dir="$(find /opt/deepseek-harness/node_modules/.pnpm \
         -type d -path '*/node-pty' -print -quit)" \
     && test -n "${node_pty_dir}" \
     && test -f "${node_pty_dir}/build/Release/pty.node" \
     && node -e "const pty=require(process.argv[1]); const p=pty.spawn('/bin/sh',[],{name:'xterm-color',cols:80,rows:24,cwd:process.cwd(),env:process.env}); let out=''; p.onData(d=>{out+=d; if(out.includes('dsh-pty-ok')){p.kill(); process.exit(0);}}); p.write('echo dsh-pty-ok\\r'); setTimeout(()=>{console.error('node-pty smoke timeout'); process.exit(1);},5000);" "${node_pty_dir}"
 
-# 12. Optional code-server (VSCode in browser), downloaded from GitHub via the configured proxy.
+# 11. Optional code-server (VSCode in browser), downloaded from GitHub via the configured proxy.
 RUN if [ "${INSTALL_CODE_SERVER}" = "true" ]; then \
         proxy_args=""; \
         if [ -n "${GITHUB_PROXY}" ]; then \
@@ -116,7 +110,7 @@ RUN if [ "${INSTALL_CODE_SERVER}" = "true" ]; then \
         && rm -f /tmp/code-server.tar.gz; \
     fi
 
-# 13. Global dsh wrapper that runs the built repo via pnpm.
+# 12. Global dsh wrapper that runs the built repo via pnpm.
 RUN printf '%s\n' \
     '#!/bin/sh' \
     'cd /opt/deepseek-harness' \

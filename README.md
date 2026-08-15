@@ -13,8 +13,10 @@ inside the image using only tools available in the image.
 - npm/pnpm mirror: `https://registry.npmmirror.com`
 - node-gyp headers mirror: `https://npmmirror.com/mirrors/node`
 - Python package mirror: `https://pypi.tuna.tsinghua.edu.cn/simple`
-- Rust toolchain mirror: `https://rsproxy.cn`
-- Node.js, npm, pnpm 11.7.0, Python, pip, rustup stable
+- Node.js, npm, pnpm 11.7.0, Python, pip
+- Minimal C/C++ toolchain (`gcc`, `make`) for `node-pty`
+- Rust intentionally not installed: the x86_64 build of `dsh` does not need it,
+  and dropping the Rust toolchain keeps the image noticeably smaller
 - Full source checkout at `/opt/deepseek-harness`, pinned to commit
   `47f943859bef60e4160492346772ded9b24f765a`
 - `node-pty` compiled in-place and verified with a real PTY smoke test
@@ -132,7 +134,6 @@ Inside the container:
 ```sh
 node --version
 python --version
-rustc --version
 dsh --help
 ```
 
