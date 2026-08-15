@@ -8,7 +8,7 @@ inside the image using only tools available in the image.
 
 ## What is included
 
-- Base image: `archlinux:latest`
+- Base image: `archlinux:latest` (overridable via `ARCHLINUX_IMAGE`)
 - pacman mirror: Tsinghua TUNA with Aliyun fallback
 - npm/pnpm mirror: `https://registry.npmmirror.com`
 - node-gyp headers mirror: `https://npmmirror.com/mirrors/node`
@@ -27,8 +27,24 @@ inside the image using only tools available in the image.
 > `docker-compose.yml` or pass `--build-arg`.
 
 ```sh
+make build
+```
+
+Equivalent plain command:
+
+```sh
 docker compose build
 ```
+
+For builds on the mainland, use the domestic Arch base image:
+
+```sh
+make build-local
+```
+
+`make build-local` sets `ARCHLINUX_IMAGE=docker.m.daocloud.io/library/archlinux:latest`
+through the Makefile. The Dockerfile keeps `ARCHLINUX_IMAGE` defaulting to the
+upstream `archlinux:latest`, so the overseas build path is unchanged.
 
 If Docker Hub is blocked and `archlinux:latest` cannot be pulled, import the
 base image from the Tsinghua TUNA mirror first:
@@ -51,7 +67,6 @@ docker compose build --build-arg INSTALL_CODE_SERVER=false
 ## Run
 
 ```sh
-export DEEPSEEK_API_KEY=sk-...
 docker compose up -d
 ```
 
@@ -66,6 +81,32 @@ an agent against DeepSeek's API.
 > First startup can take a few minutes with no obvious log output while `dsh`
 > initializes its `web` profile. Wait for `dsh web: http://127.0.0.1:13080`
 > in `docker compose logs dsh`, then open port `3080`.
+
+### docker run
+
+Pull the published image and run it directly:
+
+```sh
+docker pull ghcr.io/cupen/dsh-workbench:latest
+
+docker run -d --name dsh-workbench --init --restart unless-stopped \
+  -p 127.0.0.1:3080:3080 \
+  -p 127.0.0.1:8443:8443 \
+  -v dsh-workbench-home:/home/dsh \
+  -e DEEPSEEK_API_KEY=sk-... \
+  ghcr.io/cupen/dsh-workbench:latest
+```
+
+The image does not bake in any API key. `DEEPSEEK_API_KEY` is only passed when
+you actually run an agent; the Web UI starts without it. If you are not ready
+to provide a key yet, just drop the `-e DEEPSEEK_API_KEY=...` line.
+
+Inside a `docker compose` setup, you can set the key the same way at runtime
+instead of editing the compose file:
+
+```sh
+docker compose run --rm -e DEEPSEEK_API_KEY=sk-... dsh bash
+```
 
 ## GitHub Container Registry
 

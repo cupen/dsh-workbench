@@ -1,6 +1,7 @@
 # syntax=docker/dockerfile:1
 
-FROM archlinux:latest
+ARG ARCHLINUX_IMAGE=archlinux:latest
+FROM ${ARCHLINUX_IMAGE}
 
 ARG GITHUB_PROXY=socks5h://host.docker.internal:1080
 ARG INSTALL_CODE_SERVER=true
