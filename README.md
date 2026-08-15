@@ -2,7 +2,7 @@
 
 This repository builds a development container for
 [deepseek-ai/deepseek-harness](https://github.com/deepseek-ai/deepseek-harness).
-The image uses Arch Linux, installs Node.js, Python, Rust, pnpm, and optional
+The image uses Arch Linux, installs Node.js, Python, pnpm, and optional
 code-server, builds `dsh` from source, and compiles the `node-pty` native module
 inside the image using only tools available in the image.
 
@@ -90,18 +90,18 @@ Pull the published image and run it directly:
 
 ```sh
 docker pull ghcr.io/cupen/dsh-workbench:latest
-
-docker run -d --name dsh-workbench --init --restart unless-stopped \
-  -p 127.0.0.1:3080:3080 \
-  -p 127.0.0.1:8443:8443 \
-  -v dsh-workbench-home:/home/dsh \
-  -e DEEPSEEK_API_KEY=sk-... \
-  ghcr.io/cupen/dsh-workbench:latest
+docker run -d --name dsh-workbench --init --restart unless-stopped -p 127.0.0.1:3080:3080 -p 127.0.0.1:8443:8443 -v dsh-workbench-home:/home/dsh -e DEEPSEEK_API_KEY=sk-... ghcr.io/cupen/dsh-workbench:latest
 ```
 
 The image does not bake in any API key. `DEEPSEEK_API_KEY` is only passed when
 you actually run an agent; the Web UI starts without it. If you are not ready
 to provide a key yet, just drop the `-e DEEPSEEK_API_KEY=...` line.
+
+On the mainland, pull through the domestic GHCR mirror instead:
+
+```sh
+docker pull ghcr.nju.edu.cn/cupen/dsh-workbench:latest
+```
 
 Inside a `docker compose` setup, you can set the key the same way at runtime
 instead of editing the compose file:
@@ -145,6 +145,6 @@ mounted at `/workspace` for scratch work.
 `node-pty@1.1.0` ships no Linux x64 prebuild. The repository has
 `patches/node-pty@1.1.0.patch` and `allowBuilds` entries, so `pnpm install`
 runs its source build. The Dockerfile sets the node-gyp header mirror to
-npmmirror and installs `base-devel` plus Python, so the native addon is compiled
+npmmirror and installs `gcc`/`make` plus Python, so the native addon is compiled
 with the image's own toolchain. The build loads `pty.node` and spawns a
 `/bin/sh` PTY to verify it actually works.
