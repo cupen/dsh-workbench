@@ -5,7 +5,6 @@ services:
       args:
         GITHUB_PROXY: socks5h://host.docker.internal:1080
         INSTALL_CODE_SERVER: "true"
-        ARCHLINUX_IMAGE: ${ARCHLINUX_IMAGE:-archlinux:latest}
       extra_hosts:
         - "host.docker.internal:host-gateway"
     image: dsh-workbench:latest

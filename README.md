@@ -8,7 +8,7 @@ inside the image using only tools available in the image.
 
 ## What is included
 
-- Base image: `archlinux:latest` (overridable via `ARCHLINUX_IMAGE`)
+- Base image: official Docker `archlinux:latest`
 - pacman mirror: Tsinghua TUNA with Aliyun fallback
 - npm/pnpm mirror: `https://registry.npmmirror.com`
 - node-gyp headers mirror: `https://npmmirror.com/mirrors/node`
@@ -37,16 +37,6 @@ Equivalent plain command:
 ```sh
 docker compose build
 ```
-
-For builds on the mainland, use the domestic Arch base image:
-
-```sh
-make build-local
-```
-
-`make build-local` sets `ARCHLINUX_IMAGE=docker.m.daocloud.io/library/archlinux:latest`
-through the Makefile. The Dockerfile keeps `ARCHLINUX_IMAGE` defaulting to the
-upstream `archlinux:latest`, so the overseas build path is unchanged.
 
 If Docker Hub is blocked and `archlinux:latest` cannot be pulled, import the
 base image from the Tsinghua TUNA mirror first:
