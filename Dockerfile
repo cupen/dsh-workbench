@@ -118,8 +118,9 @@ RUN printf '%s\n' \
     && chmod 755 /usr/local/bin/dsh
 
 COPY scripts/dsh-entrypoint.sh /usr/local/bin/dsh-entrypoint
+COPY scripts/dsh-region.sh /usr/local/bin/dsh-region
 
-RUN chmod 755 /usr/local/bin/dsh-entrypoint \
+RUN chmod 755 /usr/local/bin/dsh-entrypoint /usr/local/bin/dsh-region \
     && chown -R dsh:dsh /home/dsh \
     && find /opt/deepseek-harness -mindepth 1 -maxdepth 1 ! -name node_modules -print0 \
         | xargs -0 -r chown -R dsh:dsh

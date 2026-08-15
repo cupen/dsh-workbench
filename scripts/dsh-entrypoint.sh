@@ -1,6 +1,10 @@
 #!/bin/sh
 set -eu
 
+if [ -x /usr/local/bin/dsh-region ]; then
+    . /usr/local/bin/dsh-region
+fi
+
 if [ -x /usr/local/bin/code-server ]; then
     mkdir -p /home/dsh/.local/share/code-server /home/dsh/.config/code-server
     code-server \

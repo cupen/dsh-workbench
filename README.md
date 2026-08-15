@@ -100,6 +100,25 @@ instead of editing the compose file:
 docker compose run --rm -e DEEPSEEK_API_KEY=sk-... dsh bash
 ```
 
+### 镜像区域切换（DSH_REGION）
+
+容器启动时会读取 `DSH_REGION` 环境变量，并自动切换 `dsh` 用户的
+npm/pnpm/pip/GitHub 代理配置：
+
+- `DSH_REGION=cn`：使用大陆镜像（npmmirror、清华 pip、node-gyp 头文件镜像），
+  GitHub 代理默认 `socks5h://host.docker.internal:1080`
+- `DSH_REGION=global`（默认）：使用官方 npm/pypi/node 源，不设置 GitHub 代理
+
+```sh
+docker run -d --name dsh-workbench --init --restart unless-stopped -p 127.0.0.1:3080:3080 -p 127.0.0.1:8443:8443 -v dsh-workbench-home:/home/dsh -e DSH_REGION=cn -e DEEPSEEK_API_KEY=sk-... ghcr.io/cupen/dsh-workbench:latest
+```
+
+如果你的 SOCKS 代理端口不同，额外传 `GITHUB_PROXY` 覆盖：
+
+```sh
+-e GITHUB_PROXY=socks5h://host.docker.internal:7890
+```
+
 ## GitHub Container Registry
 
 Pushes to `main` and `v*` tags trigger
