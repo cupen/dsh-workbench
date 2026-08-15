@@ -67,6 +67,19 @@ an agent against DeepSeek's API.
 > initializes its `web` profile. Wait for `dsh web: http://127.0.0.1:13080`
 > in `docker compose logs dsh`, then open port `3080`.
 
+## GitHub Container Registry
+
+Pushes to `main` and `v*` tags trigger
+[`.github/workflows/publish-ghcr.yml`](.github/workflows/publish-ghcr.yml),
+which publishes the image to:
+
+```sh
+ghcr.io/cupen/dsh-workbench:latest
+```
+
+The workflow runs without the local SOCKS proxy, so it passes
+`GITHUB_PROXY=` explicitly and relies on GitHub runners' direct network access.
+
 ## Shell / development
 
 ```sh
