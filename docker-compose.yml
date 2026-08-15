@@ -1,0 +1,25 @@
+services:
+  dsh:
+    build:
+      context: .
+      args:
+        GITHUB_PROXY: socks5h://host.docker.internal:1080
+        INSTALL_CODE_SERVER: "true"
+      extra_hosts:
+        - "host.docker.internal:host-gateway"
+    image: dsh-workbench:latest
+    container_name: dsh-workbench
+    init: true
+    restart: unless-stopped
+    environment:
+      DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:-}
+    ports:
+      - "127.0.0.1:3080:3080"
+      - "127.0.0.1:8443:8443"
+    volumes:
+      - ./workspace:/workspace
+      - dsh-home:/home/dsh
+    working_dir: /opt/deepseek-harness
+
+volumes:
+  dsh-home:

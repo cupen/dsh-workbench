@@ -1,0 +1,5 @@
+workspace/
+*.log
+archlinux-bootstrap.tar
+archlinux-bootstrap.tar.zst
+archlinux-rootfs.tar
