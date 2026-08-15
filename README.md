@@ -1,4 +1,8 @@
-# dsh-workbench: DeepSeek Harness on Arch Linux
+# dsh-workbench
+
+DeepSeek Harness development container on Arch Linux.
+
+[English](README.md) | [中文](README.zh-CN.md)
 
 This repository builds a development container for
 [deepseek-ai/deepseek-harness](https://github.com/deepseek-ai/deepseek-harness).
@@ -24,7 +28,7 @@ inside the image using only tools available in the image.
 
 ## Build
 
-> The GitHub download uses `socks5h://host.docker.internal:1080` by default.
+> GitHub downloads use `socks5h://host.docker.internal:1080` by default.
 > If your local proxy is elsewhere, change `GITHUB_PROXY` in
 > `docker-compose.yml` or pass `--build-arg`.
 
@@ -84,8 +88,8 @@ docker run -d --name dsh-workbench --init --restart unless-stopped -p 127.0.0.1:
 ```
 
 The image does not bake in any API key. `DEEPSEEK_API_KEY` is only passed when
-you actually run an agent; the Web UI starts without it. If you are not ready
-to provide a key yet, just drop the `-e DEEPSEEK_API_KEY=...` line.
+you actually run an agent; drop the `-e` line if you are not ready to provide a
+key yet.
 
 On the mainland, pull through the domestic GHCR mirror instead:
 
@@ -93,27 +97,21 @@ On the mainland, pull through the domestic GHCR mirror instead:
 docker pull ghcr.nju.edu.cn/cupen/dsh-workbench:latest
 ```
 
-Inside a `docker compose` setup, you can set the key the same way at runtime
-instead of editing the compose file:
+### DSH_REGION
 
-```sh
-docker compose run --rm -e DEEPSEEK_API_KEY=sk-... dsh bash
-```
+At container start, the `DSH_REGION` environment variable switches user-level
+mirror configuration:
 
-### 镜像区域切换（DSH_REGION）
-
-容器启动时会读取 `DSH_REGION` 环境变量，并自动切换 `dsh` 用户的
-npm/pnpm/pip/GitHub 代理配置：
-
-- `DSH_REGION=cn`：使用大陆镜像（npmmirror、清华 pip、node-gyp 头文件镜像），
-  GitHub 代理默认 `socks5h://host.docker.internal:1080`
-- `DSH_REGION=global`（默认）：使用官方 npm/pypi/node 源，不设置 GitHub 代理
+- `DSH_REGION=cn`: mainland mirrors (npmmirror, Tsinghua pip, node-gyp headers)
+  and GitHub proxy `socks5h://host.docker.internal:1080`
+- `DSH_REGION=global` (default): official npm/pypi/node sources and no GitHub
+  proxy
 
 ```sh
 docker run -d --name dsh-workbench --init --restart unless-stopped -p 127.0.0.1:3080:3080 -p 127.0.0.1:8443:8443 -v dsh-workbench-home:/home/dsh -e DSH_REGION=cn -e DEEPSEEK_API_KEY=sk-... ghcr.io/cupen/dsh-workbench:latest
 ```
 
-如果你的 SOCKS 代理端口不同，额外传 `GITHUB_PROXY` 覆盖：
+If your SOCKS proxy port is different, override it:
 
 ```sh
 -e GITHUB_PROXY=socks5h://host.docker.internal:7890
