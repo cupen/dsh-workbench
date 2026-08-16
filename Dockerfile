@@ -1,6 +1,15 @@
 # syntax=docker/dockerfile:1
 
-FROM archlinux:latest
+# ---------------------------------------------------------------------------
+# Multi-stage build:
+#   builder - full toolchain (gcc/make/pkgconf + git + node + python) to
+#             compile node-pty and build dsh
+#   final   - runtime only: node/npm/pnpm/python, no C/C++ toolchain, no
+#             pnpm store left behind, and files copied with --chown so no
+#             expensive chown -R layer is needed
+# ---------------------------------------------------------------------------
+
+FROM archlinux:latest AS base
 
 ARG GITHUB_PROXY=socks5h://host.docker.internal:1080
 ARG INSTALL_CODE_SERVER=true
@@ -34,10 +43,18 @@ RUN echo 'SigLevel = Never' >> /etc/pacman.conf \
     && pacman -Sy --noconfirm --disable-sandbox gnupg archlinux-keyring \
     && sed -i 's/^SigLevel = Never$/SigLevel = Required DatabaseOptional/' /etc/pacman.conf
 
-# 3. Development toolchain and required packages.
-#    gcc/make are the minimal toolchain node-pty's node-gyp build needs.
+# ---------------------------------------------------------------------------
+# builder: compile and build only. Everything here is discarded except the
+# /opt/deepseek-harness tree copied into final.
+# ---------------------------------------------------------------------------
+FROM base AS builder
+
+ARG GITHUB_PROXY=socks5h://host.docker.internal:1080
+ARG DSH_COMMIT=47f943859bef60e4160492346772ded9b24f765a
+ARG NPM_REGISTRY=https://registry.npmmirror.com
+
+# 3. Full toolchain: gcc/make/pkgconf are needed for the node-pty source build.
 RUN pacman -Syu --needed --noconfirm --disable-sandbox \
-    bash-completion \
     ca-certificates \
     curl \
     gcc \
@@ -46,6 +63,49 @@ RUN pacman -Syu --needed --noconfirm --disable-sandbox \
     nodejs \
     npm \
     pkgconf \
+    python \
+    && yes | pacman -Scc
+
+# 4. npm/pnpm mirror and the exact pnpm version declared by the repo.
+RUN npm config set --location=global registry "${NPM_REGISTRY}" \
+    && npm install --global pnpm@11.7.0
+
+# 5. GitHub proxy (git). Empty means direct connection.
+RUN if [ -n "${GITHUB_PROXY}" ]; then \
+        git config --global http.https://github.com.proxy "${GITHUB_PROXY}"; \
+    fi
+
+# 6. Clone the repository at a fixed commit.
+RUN git clone --depth 1 https://github.com/deepseek-ai/deepseek-harness.git /opt/deepseek-harness \
+    && cd /opt/deepseek-harness \
+    && git fetch --depth 1 origin "${DSH_COMMIT}" \
+    && git checkout --detach FETCH_HEAD
+
+# 7. Install the full workspace and build dsh. CI=true skips git-hook setup only.
+#    The repo's pnpm-workspace.yaml already allows node-pty/koffi/esbuild/lefthook builds.
+RUN cd /opt/deepseek-harness \
+    && pnpm install --frozen-lockfile \
+    && pnpm run build
+
+# ---------------------------------------------------------------------------
+# final: runtime image, no build toolchain.
+# ---------------------------------------------------------------------------
+FROM base AS final
+
+ARG GITHUB_PROXY=socks5h://host.docker.internal:1080
+ARG INSTALL_CODE_SERVER=true
+ARG NPM_REGISTRY=https://registry.npmmirror.com
+
+# 8. Runtime packages. gcc/make/pkgconf are intentionally omitted: node-pty is
+#    already compiled and verified in this image; rebuilding native modules
+#    requires installing the toolchain (see README).
+RUN pacman -Syu --needed --noconfirm --disable-sandbox \
+    bash-completion \
+    ca-certificates \
+    curl \
+    git \
+    nodejs \
+    npm \
     python \
     python-pip \
     python-setuptools \
@@ -56,46 +116,23 @@ RUN pacman -Syu --needed --noconfirm --disable-sandbox \
     wget \
     && yes | pacman -Scc
 
-# 4. Python package mirror.
+# 9. Python package mirror.
 RUN printf '%s\n' \
     '[global]' \
     'index-url = https://pypi.tuna.tsinghua.edu.cn/simple' \
     'trusted-host = pypi.tuna.tsinghua.edu.cn' \
     > /etc/pip.conf
 
-# 5. npm/pnpm package mirror and exact pnpm version declared by the repo.
+# 10. npm/pnpm mirror and pnpm.
 RUN npm config set --location=global registry "${NPM_REGISTRY}" \
     && npm install --global pnpm@11.7.0
 
-# 6. GitHub proxy (git and code-server download). Empty means direct connection.
-RUN if [ -n "${GITHUB_PROXY}" ]; then \
-        git config --global http.https://github.com.proxy "${GITHUB_PROXY}"; \
-    fi
-
-# 7. Create the runtime development user.
+# 11. Runtime development user. Must exist before the --chown COPY below.
 RUN groupadd --gid 1000 dsh \
     && useradd --create-home --uid 1000 --gid dsh --shell /bin/bash dsh
 
-# 8. Clone the repository at a fixed commit.
-RUN git clone --depth 1 https://github.com/deepseek-ai/deepseek-harness.git /opt/deepseek-harness \
-    && cd /opt/deepseek-harness \
-    && git fetch --depth 1 origin "${DSH_COMMIT}" \
-    && git checkout --detach FETCH_HEAD
-
-# 9. Install the full workspace and build dsh. CI=true skips git-hook setup only.
-#    The repo's pnpm-workspace.yaml already allows node-pty/koffi/esbuild/lefthook builds.
-RUN cd /opt/deepseek-harness \
-    && pnpm install --frozen-lockfile \
-    && pnpm run build
-
-# 10. Verify node-pty was actually compiled inside the image and can spawn a PTY.
-RUN node_pty_dir="$(find /opt/deepseek-harness/node_modules/.pnpm \
-        -type d -path '*/node-pty' -print -quit)" \
-    && test -n "${node_pty_dir}" \
-    && test -f "${node_pty_dir}/build/Release/pty.node" \
-    && node -e "const pty=require(process.argv[1]); const p=pty.spawn('/bin/sh',[],{name:'xterm-color',cols:80,rows:24,cwd:process.cwd(),env:process.env}); let out=''; p.onData(d=>{out+=d; if(out.includes('dsh-pty-ok')){p.kill(); process.exit(0);}}); p.write('echo dsh-pty-ok\\r'); setTimeout(()=>{console.error('node-pty smoke timeout'); process.exit(1);},5000);" "${node_pty_dir}"
-
-# 11. Optional code-server (VSCode in browser), downloaded from GitHub via the configured proxy.
+# 12. Optional code-server (VSCode in browser), downloaded from GitHub via the
+#     configured proxy.
 RUN if [ "${INSTALL_CODE_SERVER}" = "true" ]; then \
         proxy_args=""; \
         if [ -n "${GITHUB_PROXY}" ]; then \
@@ -109,7 +146,19 @@ RUN if [ "${INSTALL_CODE_SERVER}" = "true" ]; then \
         && rm -f /tmp/code-server.tar.gz; \
     fi
 
-# 12. Global dsh wrapper that runs the built repo via pnpm.
+# 13. Copy the built workspace (node_modules, built libs, web dist) from the
+#     builder. --chown gives dsh full ownership without a chown -R layer, and
+#     the builder's pnpm store never enters the final image.
+COPY --from=builder --chown=dsh:dsh /opt/deepseek-harness /opt/deepseek-harness
+
+# 14. Verify node-pty survived the copy and can spawn a PTY.
+RUN node_pty_dir="$(find /opt/deepseek-harness/node_modules/.pnpm \
+        -type d -path '*/node-pty' -print -quit)" \
+    && test -n "${node_pty_dir}" \
+    && test -f "${node_pty_dir}/build/Release/pty.node" \
+    && node -e "const pty=require(process.argv[1]); const p=pty.spawn('/bin/sh',[],{name:'xterm-color',cols:80,rows:24,cwd:process.cwd(),env:process.env}); let out=''; p.onData(d=>{out+=d; if(out.includes('dsh-pty-ok')){p.kill(); process.exit(0);}}); p.write('echo dsh-pty-ok\r'); setTimeout(()=>{console.error('node-pty smoke timeout'); process.exit(1);},5000);" "${node_pty_dir}"
+
+# 15. Global dsh wrapper that runs the built repo via pnpm.
 RUN printf '%s\n' \
     '#!/bin/sh' \
     'cd /opt/deepseek-harness' \
@@ -120,10 +169,7 @@ RUN printf '%s\n' \
 COPY scripts/dsh-entrypoint.sh /usr/local/bin/dsh-entrypoint
 COPY scripts/dsh-region.sh /usr/local/bin/dsh-region
 
-RUN chmod 755 /usr/local/bin/dsh-entrypoint /usr/local/bin/dsh-region \
-    && chown -R dsh:dsh /home/dsh \
-    && find /opt/deepseek-harness -mindepth 1 -maxdepth 1 ! -name node_modules -print0 \
-        | xargs -0 -r chown -R dsh:dsh
+RUN chmod 755 /usr/local/bin/dsh-entrypoint /usr/local/bin/dsh-region
 
 WORKDIR /opt/deepseek-harness
 USER dsh

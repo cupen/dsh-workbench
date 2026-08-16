@@ -18,7 +18,8 @@ inside the image using only tools available in the image.
 - node-gyp headers mirror: `https://npmmirror.com/mirrors/node`
 - Python package mirror: `https://pypi.tuna.tsinghua.edu.cn/simple`
 - Node.js, npm, pnpm 11.7.0, Python, pip
-- Minimal C/C++ toolchain (`gcc`, `make`) for `node-pty`
+- Multi-stage build: `node-pty` is compiled in a dedicated builder stage; the
+  final image keeps no C/C++ toolchain and no package caches
 - Rust intentionally not installed: the x86_64 build of `dsh` does not need it,
   and dropping the Rust toolchain keeps the image noticeably smaller
 - Full source checkout at `/opt/deepseek-harness`, pinned to commit
@@ -151,7 +152,16 @@ mounted at `/workspace` for scratch work.
 
 `node-pty@1.1.0` ships no Linux x64 prebuild. The repository has
 `patches/node-pty@1.1.0.patch` and `allowBuilds` entries, so `pnpm install`
-runs its source build. The Dockerfile sets the node-gyp header mirror to
-npmmirror and installs `gcc`/`make` plus Python, so the native addon is compiled
-with the image's own toolchain. The build loads `pty.node` and spawns a
-`/bin/sh` PTY to verify it actually works.
+runs its source build. The Dockerfile compiles it in a dedicated builder stage
+(node-gyp header mirror pointed at npmmirror, `gcc`/`make`/`pkgconf` and Python
+installed there), then copies the built workspace into the runtime image.
+
+The runtime image intentionally ships no C/C++ toolchain to stay smaller. To
+rebuild native modules inside the container, install the toolchain first:
+
+```sh
+sudo pacman -S gcc make pkgconf python
+```
+
+The build loads `pty.node` and spawns a real `/bin/sh` PTY to verify the copied
+addon works.

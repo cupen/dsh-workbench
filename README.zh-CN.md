@@ -16,7 +16,8 @@ code-server，从源码构建 `dsh`，并在镜像内编译 `node-pty` 原生模
 - node-gyp 头文件镜像：`https://npmmirror.com/mirrors/node`
 - Python 包镜像：`https://pypi.tuna.tsinghua.edu.cn/simple`
 - Node.js、npm、pnpm 11.7.0、Python、pip
-- 最小 C/C++ 编译链（`gcc`、`make`），供 `node-pty` 使用
+- 多阶段构建：`node-pty` 在专门的 builder 阶段编译；最终镜像不保留
+  C/C++ 编译链与任何包缓存
 - 刻意不安装 Rust：`dsh` 的 x86_64 构建不需要它，去掉可显著减小镜像体积
 - 源码位于 `/opt/deepseek-harness`，锁定到提交
   `47f943859bef60e4160492346772ded9b24f765a`
@@ -143,6 +144,16 @@ dsh --help
 
 `node-pty@1.1.0` 没有 Linux x64 prebuild。仓库自带
 `patches/node-pty@1.1.0.patch` 和 `allowBuilds` 配置，`pnpm install`
-会执行源码编译。Dockerfile 把 node-gyp 头文件镜像指向 npmmirror，并安装
-`gcc`/`make` 和 Python，因此原生模块由镜像自身工具链编译。构建会加载
-`pty.node` 并实际 spawn 一个 `/bin/sh` PTY 验证可用。
+会执行源码编译。Dockerfile 在专门的 builder 阶段编译（node-gyp 头文件镜像
+指向 npmmirror，并在该阶段安装 `gcc`/`make`/`pkgconf` 和 Python），随后把
+构建好的整个工作区复制进最终镜像。
+
+最终镜像刻意不保留 C/C++ 编译链，以减小体积。如果需要在容器内重新编译
+原生模块，先安装工具链：
+
+```sh
+sudo pacman -S gcc make pkgconf python
+```
+
+构建过程会加载 `pty.node` 并实际 spawn 一个 `/bin/sh` PTY，验证复制后的
+插件可用。
