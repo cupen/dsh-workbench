@@ -174,7 +174,8 @@ RUN node_pty_dir="$(find /opt/deepseek-harness/node_modules/.pnpm \
         -type d -path '*/node-pty' -print -quit)" \
     && test -n "${node_pty_dir}" \
     && test -f "${node_pty_dir}/build/Release/pty.node" \
-    && node -e "const pty=require(process.argv[1]); const p=pty.spawn('/bin/sh',[],{name:'xterm-color',cols:80,rows:24,cwd:process.cwd(),env:process.env}); let out=''; p.onData(d=>{out+=d; if(out.includes('dsh-pty-ok')){p.kill(); process.exit(0);}}); p.write('echo dsh-pty-ok\r'); setTimeout(()=>{console.error('node-pty smoke timeout'); process.exit(1);},5000);" "${node_pty_dir}"
+    && node -e "const pty=require(process.argv[1]); const p=pty.spawn('/bin/sh',[],{name:'xterm-color',cols:80,rows:24,cwd:process.cwd(),env:process.env}); let out=''; p.onData(d=>{out+=d; if(out.includes('dsh-pty-ok')){p.kill(); process.exit(0);}}); p.write('echo dsh-pty-ok\r'); setTimeout(()=>{console.error('node-pty smoke timeout'); process.exit(1);},5000);" "${node_pty_dir}" \
+    && rm -rf /tmp/node-compile-cache
 
 # 15. Global dsh wrapper. With devDependencies installed (DSH_DEV_MODE=true) it
 #     runs the CLI from source via pnpm/tsx; in production mode it runs the
