@@ -18,6 +18,8 @@ inside the image using only tools available in the image.
 - node-gyp headers mirror: `https://npmmirror.com/mirrors/node`
 - Python package mirror: `https://pypi.tuna.tsinghua.edu.cn/simple`
 - Node.js, npm, pnpm 11.7.0, Python, pip
+- Default user `deepseek` (uid/gid 1000, home `/home/deepseek`) with
+  passwordless `sudo`
 - Production dependencies only by default; `DSH_DEV_MODE=true` keeps
   devDependencies for deepseek-harness plugin development
 - Multi-stage build: `node-pty` is compiled in a dedicated builder stage; the
@@ -98,7 +100,7 @@ Pull the published image and run it directly:
 
 ```sh
 docker pull ghcr.io/cupen/dsh-workbench:latest
-docker run -d --name dsh-workbench --init --restart unless-stopped -p 127.0.0.1:3080:3080 -p 127.0.0.1:8443:8443 -v dsh-workbench-home:/home/dsh -e DEEPSEEK_API_KEY=sk-... ghcr.io/cupen/dsh-workbench:latest
+docker run -d --name dsh-workbench --init --restart unless-stopped -p 127.0.0.1:3080:3080 -p 127.0.0.1:8443:8443 -v dsh-workbench-home:/home/deepseek -e DEEPSEEK_API_KEY=sk-... ghcr.io/cupen/dsh-workbench:latest
 ```
 
 The image does not bake in any API key. `DEEPSEEK_API_KEY` is only passed when
@@ -122,7 +124,7 @@ mirror configuration:
   proxy
 
 ```sh
-docker run -d --name dsh-workbench --init --restart unless-stopped -p 127.0.0.1:3080:3080 -p 127.0.0.1:8443:8443 -v dsh-workbench-home:/home/dsh -e DSH_REGION=cn -e DEEPSEEK_API_KEY=sk-... ghcr.io/cupen/dsh-workbench:latest
+docker run -d --name dsh-workbench --init --restart unless-stopped -p 127.0.0.1:3080:3080 -p 127.0.0.1:8443:8443 -v dsh-workbench-home:/home/deepseek -e DSH_REGION=cn -e DEEPSEEK_API_KEY=sk-... ghcr.io/cupen/dsh-workbench:latest
 ```
 
 If your SOCKS proxy port is different, override it:

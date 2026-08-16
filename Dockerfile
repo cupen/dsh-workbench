@@ -143,8 +143,11 @@ RUN npm config set --location=global registry "${NPM_REGISTRY}" \
     && npm install --global pnpm@11.7.0
 
 # 11. Runtime development user. Must exist before the --chown COPY below.
-RUN groupadd --gid 1000 dsh \
-    && useradd --create-home --uid 1000 --gid dsh --shell /bin/bash dsh
+#     `deepseek` gets passwordless sudo for in-container system tasks.
+RUN groupadd --gid 1000 deepseek \
+    && useradd --create-home --uid 1000 --gid deepseek --shell /bin/bash deepseek \
+    && printf '%s\n' 'deepseek ALL=(ALL) NOPASSWD: ALL' > /etc/sudoers.d/deepseek \
+    && chmod 440 /etc/sudoers.d/deepseek
 
 # 12. Optional code-server (VSCode in browser), downloaded from GitHub via the
 #     configured proxy.
@@ -164,7 +167,7 @@ RUN if [ "${INSTALL_CODE_SERVER}" = "true" ]; then \
 # 13. Copy the built workspace (node_modules, built libs, web dist) from the
 #     builder. --chown gives dsh full ownership without a chown -R layer, and
 #     the builder's pnpm store never enters the final image.
-COPY --from=builder --chown=dsh:dsh /opt/deepseek-harness /opt/deepseek-harness
+COPY --from=builder --chown=deepseek:deepseek /opt/deepseek-harness /opt/deepseek-harness
 
 # 14. Verify node-pty survived the copy and can spawn a PTY.
 RUN node_pty_dir="$(find /opt/deepseek-harness/node_modules/.pnpm \
@@ -192,7 +195,7 @@ COPY scripts/dsh-region.sh /usr/local/bin/dsh-region
 RUN chmod 755 /usr/local/bin/dsh-entrypoint /usr/local/bin/dsh-region
 
 WORKDIR /opt/deepseek-harness
-USER dsh
+USER deepseek
 
 EXPOSE 3080 8443
 

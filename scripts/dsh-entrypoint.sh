@@ -6,11 +6,11 @@ if [ -x /usr/local/bin/dsh-region ]; then
 fi
 
 if [ -x /usr/local/bin/code-server ]; then
-    mkdir -p /home/dsh/.local/share/code-server /home/dsh/.config/code-server
+    mkdir -p /home/deepseek/.local/share/code-server /home/deepseek/.config/code-server
     code-server \
         --auth none \
         --bind-addr 0.0.0.0:8443 \
-        --user-data-dir /home/dsh/.local/share/code-server \
+        --user-data-dir /home/deepseek/.local/share/code-server \
         /opt/deepseek-harness &
 fi
 

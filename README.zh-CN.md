@@ -16,6 +16,8 @@ code-server，从源码构建 `dsh`，并在镜像内编译 `node-pty` 原生模
 - node-gyp 头文件镜像：`https://npmmirror.com/mirrors/node`
 - Python 包镜像：`https://pypi.tuna.tsinghua.edu.cn/simple`
 - Node.js、npm、pnpm 11.7.0、Python、pip
+- 默认用户 `deepseek`（uid/gid 1000，家目录 `/home/deepseek`），
+  已配置免密 `sudo`
 - 默认只安装 production 依赖；`DSH_DEV_MODE=true` 时保留 devDependencies，
   供 deepseek-harness 插件开发使用
 - 多阶段构建：`node-pty` 在专门的 builder 阶段编译；最终镜像不保留
@@ -92,7 +94,7 @@ Web UI 不需要 API key 也能启动；真正跑 agent 时才需要传入 key�
 
 ```sh
 docker pull ghcr.io/cupen/dsh-workbench:latest
-docker run -d --name dsh-workbench --init --restart unless-stopped -p 127.0.0.1:3080:3080 -p 127.0.0.1:8443:8443 -v dsh-workbench-home:/home/dsh -e DEEPSEEK_API_KEY=sk-... ghcr.io/cupen/dsh-workbench:latest
+docker run -d --name dsh-workbench --init --restart unless-stopped -p 127.0.0.1:3080:3080 -p 127.0.0.1:8443:8443 -v dsh-workbench-home:/home/deepseek -e DEEPSEEK_API_KEY=sk-... ghcr.io/cupen/dsh-workbench:latest
 ```
 
 镜像不内置 API key。`DEEPSEEK_API_KEY` 只在真正跑 agent 时传入；
@@ -106,14 +108,14 @@ docker pull ghcr.nju.edu.cn/cupen/dsh-workbench:latest
 
 ### DSH_REGION
 
-容器启动时会读取 `DSH_REGION` 环境变量，自动切换 `dsh` 用户的镜像配置：
+容器启动时会读取 `DSH_REGION` 环境变量，自动切换 `deepseek` 用户的镜像配置：
 
 - `DSH_REGION=cn`：使用大陆镜像（npmmirror、清华 pip、node-gyp 头文件），
   GitHub 代理默认 `socks5h://host.docker.internal:1080`
 - `DSH_REGION=global`（默认）：使用官方 npm/pypi/node 源，不设置 GitHub 代理
 
 ```sh
-docker run -d --name dsh-workbench --init --restart unless-stopped -p 127.0.0.1:3080:3080 -p 127.0.0.1:8443:8443 -v dsh-workbench-home:/home/dsh -e DSH_REGION=cn -e DEEPSEEK_API_KEY=sk-... ghcr.io/cupen/dsh-workbench:latest
+docker run -d --name dsh-workbench --init --restart unless-stopped -p 127.0.0.1:3080:3080 -p 127.0.0.1:8443:8443 -v dsh-workbench-home:/home/deepseek -e DSH_REGION=cn -e DEEPSEEK_API_KEY=sk-... ghcr.io/cupen/dsh-workbench:latest
 ```
 
 如果 SOCKS 代理端口不同，可以覆盖：
