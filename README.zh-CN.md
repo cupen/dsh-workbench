@@ -16,6 +16,8 @@ code-server，从源码构建 `dsh`，并在镜像内编译 `node-pty` 原生模
 - node-gyp 头文件镜像：`https://npmmirror.com/mirrors/node`
 - Python 包镜像：`https://pypi.tuna.tsinghua.edu.cn/simple`
 - Node.js、npm、pnpm 11.7.0、Python、pip
+- 默认只安装 production 依赖；`DSH_DEV_MODE=true` 时保留 devDependencies，
+  供 deepseek-harness 插件开发使用
 - 多阶段构建：`node-pty` 在专门的 builder 阶段编译；最终镜像不保留
   C/C++ 编译链与任何包缓存
 - 刻意不安装 Rust：`dsh` 的 x86_64 构建不需要它，去掉可显著减小镜像体积
@@ -38,6 +40,16 @@ make build
 
 ```sh
 docker compose build
+```
+
+默认镜像只安装 production 依赖，`dsh` 直接运行预构建的 CLI
+（`apps/cli/lib/bin.js`）。如果要在容器内开发 deepseek-harness 插件
+（需要保留 TypeScript、tsx 等 devDependencies 以便就地构建和 lint）：
+
+```sh
+make build-dev
+# 或
+docker compose build --build-arg DSH_DEV_MODE=true
 ```
 
 如果 Docker Hub 被墙、拉不到 `archlinux:latest`，可先从清华 TUNA 导入官方

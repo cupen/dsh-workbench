@@ -5,6 +5,7 @@ services:
       args:
         GITHUB_PROXY: socks5h://host.docker.internal:1080
         INSTALL_CODE_SERVER: "true"
+        DSH_DEV_MODE: "false"
       extra_hosts:
         - "host.docker.internal:host-gateway"
     image: dsh-workbench:latest

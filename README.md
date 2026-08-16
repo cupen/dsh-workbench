@@ -18,6 +18,8 @@ inside the image using only tools available in the image.
 - node-gyp headers mirror: `https://npmmirror.com/mirrors/node`
 - Python package mirror: `https://pypi.tuna.tsinghua.edu.cn/simple`
 - Node.js, npm, pnpm 11.7.0, Python, pip
+- Production dependencies only by default; `DSH_DEV_MODE=true` keeps
+  devDependencies for deepseek-harness plugin development
 - Multi-stage build: `node-pty` is compiled in a dedicated builder stage; the
   final image keeps no C/C++ toolchain and no package caches
 - Rust intentionally not installed: the x86_64 build of `dsh` does not need it,
@@ -41,6 +43,17 @@ Equivalent plain command:
 
 ```sh
 docker compose build
+```
+
+The default image installs production dependencies only, so `dsh` runs from the
+prebuilt CLI (`apps/cli/lib/bin.js`). When you want to develop plugins for
+deepseek-harness inside the container (keeping devDependencies such as
+TypeScript and tsx so you can build and lint in place):
+
+```sh
+make build-dev
+# or
+docker compose build --build-arg DSH_DEV_MODE=true
 ```
 
 If Docker Hub is blocked and `archlinux:latest` cannot be pulled, import the

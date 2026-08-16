@@ -52,6 +52,7 @@ FROM base AS builder
 ARG GITHUB_PROXY=socks5h://host.docker.internal:1080
 ARG DSH_COMMIT=47f943859bef60e4160492346772ded9b24f765a
 ARG NPM_REGISTRY=https://registry.npmmirror.com
+ARG DSH_DEV_MODE=false
 
 # 3. Full toolchain: gcc/make/pkgconf are needed for the node-pty source build.
 RUN pacman -Syu --needed --noconfirm --disable-sandbox \
@@ -86,6 +87,20 @@ RUN git clone --depth 1 https://github.com/deepseek-ai/deepseek-harness.git /opt
 RUN cd /opt/deepseek-harness \
     && pnpm install --frozen-lockfile \
     && pnpm run build
+
+# 7b. By default only production dependencies are kept (production-only image);
+#     set DSH_DEV_MODE=true to keep devDependencies for plugin development.
+#     pnpm prune --prod / install --prod break the workspace layout (they drop
+#     workspace links, and upstream lists runtime imports such as
+#     @deepseek-ai/cordis as devDependencies), so scripts/prune-dev-deps.mjs
+#     computes the production closure from pnpm-lock.yaml instead.
+COPY scripts/prune-dev-deps.mjs /opt/prune-dev-deps.mjs
+
+RUN if [ "${DSH_DEV_MODE}" != "true" ]; then \
+        echo "[dsh-workbench] pruning dev dependencies (production mode)" \
+        && cd /opt/deepseek-harness \
+        && node /opt/prune-dev-deps.mjs /opt/deepseek-harness; \
+    fi
 
 # ---------------------------------------------------------------------------
 # final: runtime image, no build toolchain.
@@ -158,11 +173,16 @@ RUN node_pty_dir="$(find /opt/deepseek-harness/node_modules/.pnpm \
     && test -f "${node_pty_dir}/build/Release/pty.node" \
     && node -e "const pty=require(process.argv[1]); const p=pty.spawn('/bin/sh',[],{name:'xterm-color',cols:80,rows:24,cwd:process.cwd(),env:process.env}); let out=''; p.onData(d=>{out+=d; if(out.includes('dsh-pty-ok')){p.kill(); process.exit(0);}}); p.write('echo dsh-pty-ok\r'); setTimeout(()=>{console.error('node-pty smoke timeout'); process.exit(1);},5000);" "${node_pty_dir}"
 
-# 15. Global dsh wrapper that runs the built repo via pnpm.
+# 15. Global dsh wrapper. With devDependencies installed (DSH_DEV_MODE=true) it
+#     runs the CLI from source via pnpm/tsx; in production mode it runs the
+#     built apps/cli/lib/bin.js, which needs no devDependencies.
 RUN printf '%s\n' \
     '#!/bin/sh' \
     'cd /opt/deepseek-harness' \
-    'exec pnpm dsh "$@"' \
+    'if [ -x node_modules/.bin/tsx ]; then' \
+    '    exec pnpm dsh "$@"' \
+    'fi' \
+    'exec node apps/cli/lib/bin.js "$@"' \
     > /usr/local/bin/dsh \
     && chmod 755 /usr/local/bin/dsh
 
